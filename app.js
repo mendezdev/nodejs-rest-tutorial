@@ -3,17 +3,14 @@ const app = express();
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
+const keys = require("./config/keys");
 
 const productRoutes = require("./api/routes/products");
 const orderRoutes = require("./api/routes/orders");
 
 mongoose.connect(
-  "mongodb://mendezdev:" +
-    process.env.MONGO_ATLAS_PW +
-    "@react-rest-shop-shard-00-00-2uaec.mongodb.net:27017,react-rest-shop-shard-00-01-2uaec.mongodb.net:27017,react-rest-shop-shard-00-02-2uaec.mongodb.net:27017/test?ssl=true&replicaSet=react-rest-shop-shard-0&authSource=admin&retryWrites=true",
-  {
-    useMongoClient: true
-  }
+  keys.MONGO_URL,
+  { useNewUrlParser: true }
 );
 
 app.use(morgan("dev"));
