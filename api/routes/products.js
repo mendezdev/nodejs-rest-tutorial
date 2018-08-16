@@ -1,6 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
+const multer = require("multer");
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, './uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, new Date().toISOString().replace(/:/g, '-') + file.originalname);
+  }
+})
+
+const upload = multer({storage: storage});
 
 const Product = require("../models/product");
 
@@ -26,14 +38,13 @@ router.get("/", async (req, res, next) => {
     };
     res.status(200).json(response);
   } catch (error) {
-    console.log("error", error);
     res.status(500).json({
       error
     });
   }
 });
 
-router.post("/", async (req, res, next) => {
+router.post("/", upload.single('productImage'), async (req, res, next) => {  
   const product = new Product({
     _id: new mongoose.Types.ObjectId(),
     name: req.body.name,
@@ -56,7 +67,6 @@ router.post("/", async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.log(error);
     res.status(500).json({
       error
     });
@@ -110,7 +120,6 @@ router.patch("/:productId", async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.log("error", error);
     res.status(500).json({ error });
   }
 });
@@ -120,15 +129,14 @@ router.delete("/:productId", async (req, res, next) => {
   try {
     const result = await Product.remove({ _id: id }).exec();
     res.status(200).json({
-      message: 'Product deleted',
+      message: "Product deleted",
       request: {
-        type: 'POST',
-        url: 'http://localhost:3000/products',
-        body: { name: 'String', price: 'Number' }
+        type: "POST",
+        url: "http://localhost:3000/products",
+        body: { name: "String", price: "Number" }
       }
     });
   } catch (error) {
-    console.log("error", error);
     res.status(500).json({
       error
     });
