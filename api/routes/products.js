@@ -2,33 +2,44 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 const multer = require("multer");
+const cloudinary = require("cloudinary");
+const fs = require("fs");
+
+const keys = require('../../config/keys');
+
+cloudinary.config({
+  cloud_name: keys.CLOUDINARY_CLOUD_NAME,
+  api_key: keys.CLOUDINARY_API_KEY,
+  api_secret: keys.CLOUDINARY_API_SECRET
+});
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, './uploads/');
+  destination: function(req, file, cb) {
+    cb(null, "./uploads/");
   },
-  filename: function (req, file, cb) {
-    cb(null, new Date().toISOString().replace(/:/g, '-') + file.originalname);
+  filename: function(req, file, cb) {
+    cb(null, new Date().toISOString().replace(/:/g, "-") + file.originalname);
   }
-})
+});
 
-const upload = multer({storage: storage});
+const upload = multer({ storage: storage });
 
 const Product = require("../models/product");
 
 router.get("/", async (req, res, next) => {
   try {
     const products = await Product.find()
-      .select("name price _id")
+      .select("_id name price image")
       .exec();
     const response = {
       count: products.length,
       products: products.map(prod => {
-        const { _id, name, price } = prod;
+        const { _id, name, price, image } = prod;
         return {
           _id,
           name,
           price,
+          image,
           request: {
             type: "GET",
             url: "http://localhost:3000/products/" + prod._id
@@ -44,7 +55,32 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-router.post("/", upload.single('productImage'), async (req, res, next) => {  
+const saveImage = path => {
+  return new Promise((resolve, rejected) => {
+    cloudinary.uploader.upload(path, result => {
+      resolve(result);
+    });
+  });
+};
+
+const removeTempImage = path => {
+  return new Promise((resolve, reject) => {
+    fs.unlink(path, error => {
+      if (error) {
+        reject({
+          success: false,
+          error
+        });
+      }
+
+      resolve({ success: true });
+    });
+  });
+};
+
+router.post("/", upload.single("productImage"), async (req, res, next) => {
+  const pathFile = req.file.path.replace("\\", "/");
+
   const product = new Product({
     _id: new mongoose.Types.ObjectId(),
     name: req.body.name,
@@ -54,12 +90,30 @@ router.post("/", upload.single('productImage'), async (req, res, next) => {
   try {
     const newProduct = await product.save();
     const { _id, name, price } = newProduct;
+
+    const imgResult = await saveImage(pathFile);
+    const removeResult = await removeTempImage(pathFile);
+
+    const result = await Product.update(
+      { _id: _id },
+      {
+        $set: {
+          image: {
+            url: imgResult.url,
+            secure_url: imgResult.secure_url,
+            public_id: imgResult.public_id  
+          }
+        }
+      }
+    ).exec();
+
     res.status(201).json({
       message: "Created product successfully",
       createdProduct: {
         _id,
         name,
         price,
+        // imageUrl: result.image.url,
         request: {
           type: "GET",
           url: "http://localhost:3000/products/" + _id
@@ -78,7 +132,7 @@ router.get("/:productId", async (req, res, next) => {
 
   try {
     const product = await Product.findById(id)
-      .select("_id name price")
+      .select("_id name price image")
       .exec();
 
     if (product) {
