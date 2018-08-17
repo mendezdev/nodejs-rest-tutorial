@@ -3,7 +3,6 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const multer = require("multer");
 const cloudinary = require("cloudinary");
-const fs = require("fs");
 
 const keys = require('../../config/keys');
 
@@ -12,6 +11,8 @@ cloudinary.config({
   api_key: keys.CLOUDINARY_API_KEY,
   api_secret: keys.CLOUDINARY_API_SECRET
 });
+
+const imageStorage = require('../../core/image-storage')(cloudinary);
 
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
@@ -23,7 +24,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-
 const Product = require("../models/product");
 
 router.get("/", async (req, res, next) => {
@@ -55,29 +55,6 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-const saveImage = path => {
-  return new Promise((resolve, rejected) => {
-    cloudinary.uploader.upload(path, result => {
-      resolve(result);
-    });
-  });
-};
-
-const removeTempImage = path => {
-  return new Promise((resolve, reject) => {
-    fs.unlink(path, error => {
-      if (error) {
-        reject({
-          success: false,
-          error
-        });
-      }
-
-      resolve({ success: true });
-    });
-  });
-};
-
 router.post("/", upload.single("productImage"), async (req, res, next) => {
   const pathFile = req.file.path.replace("\\", "/");
 
@@ -91,8 +68,8 @@ router.post("/", upload.single("productImage"), async (req, res, next) => {
     const newProduct = await product.save();
     const { _id, name, price } = newProduct;
 
-    const imgResult = await saveImage(pathFile);
-    const removeResult = await removeTempImage(pathFile);
+    const imgResult = await imageStorage.saveImage(pathFile);
+    const removeResult = await imageStorage.removeTempImage(pathFile);
 
     const result = await Product.update(
       { _id: _id },
