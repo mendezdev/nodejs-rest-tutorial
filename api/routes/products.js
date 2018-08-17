@@ -5,6 +5,7 @@ const multer = require("multer");
 const cloudinary = require("cloudinary");
 
 const keys = require('../../config/keys');
+const checkAuth = require('../middleware/check-auth');
 
 cloudinary.config({
   cloud_name: keys.CLOUDINARY_CLOUD_NAME,
@@ -55,7 +56,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-router.post("/", upload.single("productImage"), async (req, res, next) => {
+router.post("/", checkAuth, upload.single("productImage"), async (req, res, next) => {
   const pathFile = req.file.path.replace("\\", "/");
 
   const product = new Product({
